@@ -8,7 +8,7 @@ sudo install -m 555 argocd-darwin-amd64 /usr/local/bin/argocd
 rm argocd-darwin-amd64
 
 # extension demo
-gcloud builds submit --tag gcr.io/heewonk-bunker/gowiki
+gcloud builds submit --tag gcr.io/heewonk-bunker/extdemo
 
 argocd app create argocd-extension-demo --repo https://github.com/saillinux/argocd-extension-demo.git --path helm --dest-server https://kubernetes.default.svc --dest-namespace argocd
 
@@ -71,3 +71,25 @@ https://argo-cd.readthedocs.io/en/latest/operator-manual/rbac/#the-extensions-re
 
 argocd admin settings rbac can admin get applications "default/argocd-extension-demo"  -n argocd
 argocd admin settings rbac can admin invoke extensions extdemo -n argocd
+
+argocd-rbac-cm
+
+```
+data:
+  policy.csv: |
+    p, role:org-admin, applications, *, */*, allow
+    p, role:org-admin, clusters, get, *, allow
+    p, role:org-admin, repositories, get, *, allow
+    p, role:org-admin, repositories, create, *, allow
+    p, role:org-admin, repositories, update, *, allow
+    p, role:org-admin, repositories, delete, *, allow
+    p, role:org-admin, projects, get, *, allow
+    p, role:org-admin, projects, create, *, allow
+    p, role:org-admin, projects, update, *, allow
+    p, role:org-admin, projects, delete, *, allow
+    p, role:org-admin, logs, get, *, allow
+    p, role:org-admin, exec, create, */*, allow
+    p, role:org-admin, extensions, *, *, allow
+    g, heewonk, role:org-admin
+  policy.default: role:readonly
+```
