@@ -93,3 +93,48 @@ data:
     g, heewonk, role:org-admin
   policy.default: role:readonly
 ```
+
+
+# install argocd-extentions
+kustomization.yaml
+
+```
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+# base Argo CD components
+- https://raw.githubusercontent.com/argoproj/argo-cd/v2.7.0-rc2/manifests/install.yaml
+
+components:
+# extensions controller component
+- https://github.com/argoproj-labs/argocd-extensions/manifests
+```
+
+kustomize build . | kubectl apply -f - -n argocd
+
+# install extension UI example
+https://github.com/argoproj-labs/argocd-example-extension
+
+webpack config contains the group kind
+- https://github.com/argoproj-labs/argocd-extension-metrics/blob/main/extensions/resource-metrics/resource-metrics-extention/ui/webpack.config.js
+- https://github.com/argoproj-labs/argocd-example-extension/blob/master/ui/webpack.config.js
+
+
+# App View
+
+((window) => {
+  window.extensionsAPI.registerAppViewExtension(
+    window.extensions.resources["argoproj.io/Application"].component,
+    window.extensions.resources["argoproj.io/Application"].title,
+    window.extensions.resources["argoproj.io/Application"].icon,
+  );
+})(window);
+
+# scratch
+
+without using ArgoCD extensions proxy
+https://github.com/argoproj-labs/argocd-extension-metrics#enable-the-argo-ui-to-access-the-argocd-metrics-server
+
+access the container
+kubectl exec -it argocd-server-78b8784d4b-zgdgj -n argocd -- /bin/bash

@@ -1,88 +1,68 @@
 package main
 
 import (
-	"html/template"
+	"cloud.google.com/go/storage"
+	"context"
+	"encoding/json"
+	"fmt"
+	"google.golang.org/api/iterator"
 	"log"
 	"net/http"
-	"os"
-	"regexp"
+	"time"
 )
 
-type Page struct {
-	Title string
-	Body  []byte
+var PROJECT_ID = "heewonk-bunker"
+
+type Buckets struct {
+	Buckets []string `json:"buckets"`
 }
 
-var templates = template.Must(template.ParseFiles("edit.html", "view.html"))
-
-var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
-
-func (p *Page) save() error {
-	filename := p.Title + ".txt"
-	// 0600 is the Unix permission mode indicating that the file should be created with read-write permissions for the current user only.
-	return os.WriteFile(filename, p.Body, 0600)
-}
-
-func loadPage(title string) (*Page, error) {
-	filename := title + ".txt"
-	body, err := os.ReadFile(filename)
+// listBuckets lists buckets in the project.
+func listBuckets(projectID string) ([]string, error) {
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("storage.NewClient: %v", err)
 	}
-	return &Page{Title: title, Body: body}, nil
-}
+	defer client.Close()
 
-func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
-	err := templates.ExecuteTemplate(w, tmpl+".html", p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
+	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
 
-func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
-	if err != nil {
-		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
-		return
-	}
-	renderTemplate(w, "view", p)
-}
-
-func editHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
-	if err != nil {
-		p = &Page{Title: title}
-	}
-	t, _ := template.ParseFiles("edit.html")
-	t.Execute(w, p)
-}
-
-func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
-	body := r.FormValue("body")
-	p := &Page{Title: title, Body: []byte(body)}
-	err := p.save()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
-}
-
-func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		m := validPath.FindStringSubmatch(r.URL.Path)
-		if m == nil {
-			http.NotFound(w, r)
-			return
+	var buckets []string
+	it := client.Buckets(ctx, projectID)
+	for {
+		battrs, err := it.Next()
+		if err == iterator.Done {
+			break
 		}
-		fn(w, r, m[2])
+		if err != nil {
+			return nil, err
+		}
+		buckets = append(buckets, battrs.Name)
 	}
+	return buckets, nil
+}
+
+func listBucketsHandler(w http.ResponseWriter, r *http.Request) {
+	buckets, err := listBuckets(PROJECT_ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	bucketsJson, err := json.Marshal(buckets)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Println(buckets)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(bucketsJson)
 }
 
 func main() {
-	http.HandleFunc("/view/", makeHandler(viewHandler))
-	http.HandleFunc("/edit/", makeHandler(editHandler))
-	http.HandleFunc("/save/", makeHandler(saveHandler))
+	http.HandleFunc("/storage/list", listBucketsHandler)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
