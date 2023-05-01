@@ -14,6 +14,8 @@ spec:
         app: {{ .Chart.Name }}
     spec:
       serviceAccountName: {{ .Values.workloadIdentity.name }}
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "{{ .Values.workloadIdentity.enabled }}"
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
