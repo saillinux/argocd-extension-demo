@@ -4,8 +4,6 @@ metadata:
   name: {{ .Chart.Name }}
 spec:
   serviceAccountName: {{ .Values.serviceAccountName }}
-  nodeSelector:
-    iam.gke.io/gke-metadata-server-enabled: "{{ .Values.enabled }}"
   replicas: {{ .Values.replicaCount }}
   revisionHistoryLimit: 3
   selector:
