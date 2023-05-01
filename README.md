@@ -89,6 +89,7 @@ data:
 
 # Workload Identity
 https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity
+https://spring-gcp.saturnism.me/deployment/kubernetes/workload-identity
 
 kubectl create serviceaccount sa-extdemo --namespace argocd
 gcloud iam service-accounts create gsa-extdemo --project=heewonk-bunker
@@ -105,7 +106,10 @@ kubectl annotate serviceaccount sa-extdemo \
 spec:
   serviceAccountName: sa-extdemo
   nodeSelector:
-    iam.gke.io/gke-metadata-server-enabled: "true"        
+    iam.gke.io/gke-metadata-server-enabled: "true"
+
+curl -H"Metadata-Flavor: Google" \
+  http://metadata/computeMetadata/v1/instance/service-accounts/default/email    
 
 # install argocd-extentions
 kustomization.yaml
