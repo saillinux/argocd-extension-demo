@@ -1,0 +1,93 @@
+@import 'node_modules/argo-ui/v2/styles/colors';
+
+.extension {
+    padding-bottom: 5em;
+    &__row {
+        display: flex;
+        width: 100%;
+        margin-bottom: 1.5em;
+        justify-content: center;
+
+        .info {
+            height: auto;
+        }
+
+        &--bottom {
+            .info {
+                height: max-content;
+            }
+        }
+    }
+
+    &__info {
+        width: 400px;
+        margin-right: 15px;
+
+        &:last-child {
+            margin-right: 0;
+        }
+    }
+
+    &__header {
+        color: $argo-color-gray-8;
+        font-size: 22px;
+        margin-left: 12px;
+        margin-right: auto;
+        flex-shrink: 0;
+        height: 2em;
+        display: flex;
+        align-items: center;
+        &--dark {
+            color: $shine;
+        }
+    }
+    &__toolbar {
+        box-sizing: border-box;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        padding-bottom: 1em;
+        margin-bottom: 1.5em;
+        border-bottom: 1px solid $argo-color-gray-4;
+        background-color: white;
+        padding-top: 1em;
+        flex-wrap: wrap;
+        &--dark {
+            background-color: $space;
+            border-bottom: 1px solid $silver-lining;
+        }
+
+        &__actions {
+            @media screen and (max-width: 750px) {
+                width: 100%;
+                margin-top: 1em;
+                margin-left: 7px;
+            }
+        }
+    }
+
+    &__revisions {
+        width: 550px;
+    }
+
+    &__body {
+        padding: 0 20px;
+        color: $argo-color-gray-8;
+        display: flex;
+        flex-wrap: wrap;
+        h3 {
+            margin-bottom: 0px;
+            font-size: 12px;
+            font-weight: 500;
+            color: $argo-color-gray-6;
+        }
+
+        &--dark {
+            color: $shine;
+            h3 {
+                color: $dull-shine;
+            }
+        }
+    }
+}

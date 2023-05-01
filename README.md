@@ -10,6 +10,8 @@ rm argocd-darwin-amd64
 # extension demo
 gcloud builds submit --tag gcr.io/heewonk-bunker/extdemo
 
+kubectl port-forward svc/argocd-extension-demo -n argocd 8080:80
+
 argocd app create argocd-extension-demo --repo https://github.com/saillinux/argocd-extension-demo.git --path helm --dest-server https://kubernetes.default.svc --dest-namespace argocd
 
 argocd-extension-demo.argocd.svc.cluster.local
@@ -47,16 +49,7 @@ myHeaders.append("Cookie", "")
 myHeaders.append("Argocd-Application-Name", "argocd:argocd-extension-demo")
 myHeaders.append("Argocd-Project-Name", "default")
 
-const myRequest = new Request("/extensions/httpbin/anything", {
-  method: "GET",
-  headers: myHeaders,
-  mode: "cors",
-  cache: "default",
-});
-const response = await fetch(myRequest);
-console.log(await response.json())
-
-const myRequest = new Request("/extensions/extdemo/view/test", {
+const myRequest = new Request("/extensions/extdemo/compute/instancegroup/heewonk-bunker/us-west1/heewonk-bunker-argocd-cc-demo-instance-group", {
   method: "GET",
   headers: myHeaders,
   mode: "cors",
@@ -94,6 +87,25 @@ data:
   policy.default: role:readonly
 ```
 
+# Workload Identity
+https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity
+
+kubectl create serviceaccount sa-extdemo --namespace argocd
+gcloud iam service-accounts create gsa-extdemo --project=heewonk-bunker
+gcloud projects add-iam-policy-binding heewonk-bunker \
+    --member "serviceAccount:gsa-extdemo@heewonk-bunker.iam.gserviceaccount.com" \
+    --role "roles/compute.admin"
+gcloud iam service-accounts add-iam-policy-binding gsa-extdemo@heewonk-bunker.iam.gserviceaccount.com \
+    --role roles/iam.workloadIdentityUser \
+    --member "serviceAccount:heewonk-bunker.svc.id.goog[argocd/sa-extdemo]"
+kubectl annotate serviceaccount sa-extdemo \
+    --namespace argocd \
+    iam.gke.io/gcp-service-account=gsa-extdemo@heewonk-bunker.iam.gserviceaccount.com
+
+spec:
+  serviceAccountName: sa-extdemo
+  nodeSelector:
+    iam.gke.io/gke-metadata-server-enabled: "true"        
 
 # install argocd-extentions
 kustomization.yaml
@@ -120,6 +132,19 @@ webpack config contains the group kind
 - https://github.com/argoproj-labs/argocd-extension-metrics/blob/main/extensions/resource-metrics/resource-metrics-extention/ui/webpack.config.js
 - https://github.com/argoproj-labs/argocd-example-extension/blob/master/ui/webpack.config.js
 
+apiVersion: argoproj.io/v1alpha1
+kind: ArgoCDExtension
+metadata:
+  name: argocd-extension-example
+  labels:
+    tab: "Demo"
+    icon: "fa-th"
+  finalizers:
+    - extensions-finalizer.argocd.argoproj.io
+spec:
+  sources:
+    - web:
+        url: https://github.com/saillinux/argocd-extension-demo/releases/download/v0.1.0/extension.tar
 
 # App View
 
@@ -138,3 +163,13 @@ https://github.com/argoproj-labs/argocd-extension-metrics#enable-the-argo-ui-to-
 
 access the container
 kubectl exec -it argocd-server-78b8784d4b-zgdgj -n argocd -- /bin/bash
+
+# Google Cloud Go SDK for Managed Instance Group
+https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/compute/v1
+https://raw.githubusercontent.com/google/google-api-go-client/master/compute/v1/compute-gen.go
+
+https://cloud.google.com/compute/docs/reference/rest/v1/regionInstanceGroupManagers/get
+https://cloud.google.com/compute/docs/reference/rest/v1/regionInstanceGroups/listInstances
+
+https://cloud.google.com/compute/docs/instance-groups/rolling-out-updates-to-managed-instance-groups
+https://cloud.google.com/compute/docs/reference/rest/v1/regionInstanceGroupManagers/patch#iam-permissions
