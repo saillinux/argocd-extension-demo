@@ -108,8 +108,11 @@ spec:
   nodeSelector:
     iam.gke.io/gke-metadata-server-enabled: "true"
 
+apk add curl
 curl -H"Metadata-Flavor: Google" \
   http://metadata/computeMetadata/v1/instance/service-accounts/default/email    
+
+curl http://127.0.0.1:8080/compute/instancegroup/heewonk-bunker/us-west1/heewonk-bunker-argocd-cc-demo-instance-group
 
 # install argocd-extentions
 kustomization.yaml
