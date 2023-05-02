@@ -1,13 +1,12 @@
 package main
 
 import (
-	compute "cloud.google.com/go/compute/apiv1"
-	"cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/storage"
 	"context"
 	"encoding/json"
 	"fmt"
-	// "google.golang.org/api/compute/v1"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iterator"
 	"log"
 	"net/http"
@@ -102,44 +101,97 @@ func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
 
-	client, err := compute.NewInstanceGroupManagersRESTClient(ctx)
+	_, err := google.DefaultClient(ctx, compute.CloudPlatformScope)
 	if err != nil {
-		log.Printf("NewInstancesRESTClient: %v", err)
+		log.Print(err)
+	}
+
+	client, err := compute.NewService(ctx)
+	if err != nil {
+		log.Printf("Failed to create Compute Engine API client: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer client.Close()
 
-	/* 	client, err := compute.NewRegionInstanceGroupManagersRESTClient(ctx)
-	   	if err != nil {
-	   		log.Printf("NewInstancesRESTClient: %v", err)
-	   		http.Error(w, err.Error(), http.StatusInternalServerError)
-	   		return
-	   	}
-	   	defer client.Close() */
-
-	req := &computepb.GetInstanceGroupManagerRequest{
-		Project:              projectId,
-		Zone:                 "us-central1-c",
-		InstanceGroupManager: "gke-front01-us-central1--default-pool-03af78fd-grp",
-	}
-
-	/* 	req := &computepb.GetRegionInstanceGroupManagerRequest{
-		Project:              projectId,
-		Region:               region,
-		InstanceGroupManager: instanceGroupName,
-	} */
-
-	resp, err := client.Get(ctx, req)
+	// Call the Compute Engine API to get the managed instance group information
+	instanceGroup, err := client.RegionInstanceGroupManagers.Get(projectId, region, instanceGroupName).Context(ctx).Do()
+	// instanceGroup, err := client.InstanceGroupManagers.Get(projectId, region+"-b", instanceGroupName).Context(ctx).Do()
 	if err != nil {
-		log.Printf("unable to retrieve instanceGroup: %v", err)
+		// log.Fatalf("Failed to retrieve managed instance group: %v", err)
+		log.Printf("Failed to retrieve managed instance group: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("%+v\n", resp)
+	// fmt.Printf("%+v\n", instanceGroup)
 
-	w.Header().Set("Content-Type", "application/text")
-	w.Write([]byte("success"))
+	// Print out the name and size of the managed instance group
+	/* 	fmt.Printf("Managed instance group id: %d\n", instanceGroup.Id)
+	fmt.Printf("Managed instance group name: %s\n", instanceGroup.Name)
+	fmt.Printf("Managed instance group: %s\n", instanceGroup.InstanceGroup)
+	fmt.Printf("Managed instance group target size: %d\n", instanceGroup.TargetSize)
+	fmt.Printf("Managed instance group template: %s\n", instanceGroup.InstanceTemplate) */
+	/* 	fmt.Println(instanceGroup.Status.IsStable)
+	fmt.Println(len(instanceGroup.Versions))
+	fmt.Println(instanceGroup.UpdatePolicy.Type) */
+
+	// Call the Compute Engine API to get the instances in the instance group
+	instanceList, err := client.RegionInstanceGroups.ListInstances(
+		projectId,
+		region,
+		instanceGroupName,
+		&compute.RegionInstanceGroupsListInstancesRequest{},
+	).Do()
+	if err != nil {
+		log.Printf("Failed to retrieve instances from instance group: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	tmplParts := strings.Split(instanceGroup.InstanceTemplate, "/")
+
+	mig := &ManagedInstanceGroup{
+		ProjectId:             projectId,
+		Region:                region,
+		Name:                  instanceGroupName,
+		TargetSize:            instanceGroup.TargetSize,
+		InstanceGroupTemplate: tmplParts[len(tmplParts)-1],
+		BaseInstanceName:      instanceGroup.BaseInstanceName,
+		UpdatePolicy:          instanceGroup.UpdatePolicy.Type,
+		Status:                instanceGroup.Status.IsStable,
+		SelfLink:              instanceGroup.SelfLink,
+		ManagedInstances:      []ManagedInstance{},
+	}
+
+	for _, instance := range instanceList.Items {
+		parts := strings.Split(instance.Instance, "/")
+		projectId, zone, instanceName := parts[6], parts[8], parts[10]
+
+		/* 		fmt.Println("=====================================")
+		fmt.Printf("Instance ProjectId: %s\n", projectId)
+		fmt.Printf("Instance Zone: %s\n", zone)
+		fmt.Printf("Instance Name: %s\n", instanceName)
+		fmt.Printf("Instance Status: %s\n", instance.Status)
+		fmt.Printf("Instance Resource URI: %s\n", instance.Instance) */
+
+		mig.ManagedInstances = append(mig.ManagedInstances, ManagedInstance{
+			ProjectId: projectId,
+			Zone:      zone,
+			Name:      instanceName,
+			Status:    instance.Status,
+			SelfLink:  instance.Instance,
+		})
+	}
+
+	migJson, err := json.Marshal(mig)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// fmt.Println(mig)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(migJson)
 }
 
 func main() {
