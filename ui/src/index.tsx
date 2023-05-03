@@ -1,18 +1,12 @@
 import * as React from 'react';
-
 import {
-  Menu,
-  Tooltip,
+  ActionButton,
+  EffectDiv,
   InfoItemRow,
-  Input,
-  Text,
+  ThemeDiv,
+  Tooltip,  
+  WaitFor,
 } from 'argo-ui/v2';
-import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
-import {
-  faChevronCircleUp,
-  faCheck,  
-} from '@fortawesome/free-solid-svg-icons';
-
 import "./index.scss";
 
 const EXTPATH = "/extensions/extdemo";
@@ -48,7 +42,7 @@ export const Extension = (props: {
 
   console.log(props);
 
-  const { metadata: { annotations, name }, spec } = props.resource;
+  const { metadata: { annotations, name }, spec, status } = props.resource;
   const { location, targetSize } = spec;
   
   const projectId = annotations['cnrm.cloud.google.com/project-id'];
@@ -75,144 +69,161 @@ export const Extension = (props: {
             <div className='info__title'>
               Summary
             </div>
-            <InfoItemRow
+            <ThemeDiv className='rollout__info__section'>
+              <InfoItemRow
                 items={{
-                  content: "rollout.strategy",
-                  icon: "fa-time",
+                  content: location,
+                  icon: 'fa-map-marker'
                 }}
-                label='Strategy'
-            />
-            <div className='rollout__info__section'>
-              <React.Fragment>
-                <InfoItemRow
-                  items={{
-                    content: location,
-                    icon: 'fa-shoe-prints'
-                  }}
-                  label='Location'
-                />
-                <InfoItemRow
-                  items={{
-                    content: targetSize,
-                    icon: 'fa-balance-scale-right'
-                  }}
-                  label='Target Size'
-                />
-                <InfoItemRow
-                  items={{
-                    content: 'rollout.actualWeight',
-                    icon: 'fa-balance-scale'
-                  }}
-                  label='Actual Weight'
-                />                    
-                {' '}
-              </React.Fragment>
-            </div>
+                label='Location'
+              />
+              <InfoItemRow
+                items={{
+                  content: targetSize,
+                  icon: 'fa-balance-scale-right'
+                }}
+                label='Target Size'
+              />
+              <InfoItemRow
+                items={{
+                  content: spec.distributionPolicy.targetShape,
+                  icon: 'fa-balance-scale'
+                }}
+                label='Distribution Policy'
+              />
+              <InfoItemRow
+                items={{
+                  content: spec.updatePolicy.instanceRedistributionType,
+                }}
+                label='Update Policy'
+              />
+              <InfoItemRow
+                items={{
+                  content: spec.updatePolicy.maxSurge.fixed,
+                  icon: 'fa-balance-scale'
+                }}
+                label='Maximum Surge'
+              />
+              <InfoItemRow
+                items={{
+                  content: spec.updatePolicy.maxUnavailable.fixed,
+                  icon: 'fa-balance-scale'
+                }}
+                label='Maximum Unavailable'
+              />
+              <InfoItemRow
+                items={{
+                  content: spec.updatePolicy.minimalAction,
+                }}
+                label='Minimal Action'
+              />
+              <InfoItemRow
+                items={{
+                  content: spec.updatePolicy.replacementMethod,
+                }}
+                label='Replace Method'
+              />                                                                
+              {' '}
+            </ThemeDiv>
         </div>
-        <div className='info rollout__info'>
+        <ThemeDiv className='info rollout__info'>
           <div style={{
             display: 'flex',
             alignItems: 'center',
             height: '2em'
           }}>
-            <div className='info__title' style={{marginBottom: '0'}}>
-                Containers
-            </div>
+            <ThemeDiv className='info__title' style={{marginBottom: '0'}}>
+                Status
+            </ThemeDiv>
           </div>
-          <div style={{margin: '1em 0', whiteSpace: 'nowrap'}}>
-            <div style={{marginBottom: '0.5em', fontWeight: 600, fontSize: '14px'}}>
-              container.name
-            </div>
-            <div style={{width: '100%', height: '2em', minWidth: 0}}>
-              <Input
-                value={"container.image"}
-                style={{
-                  width: '100%',
-                  cursor: 'default',
-                  color: 'black'
-                }}
-                disabled={true}
-              />
-            </div>
-        </div>
-          <div className='containers__few'>
-            <span style={{ marginRight: '5px' }}>
-              <i className='fa fa-boxes' />
-            </span>
+          <div style={{
+            margin: '1em 0',
+            whiteSpace: 'nowrap'
+          }}>
+            <InfoItemRow
+              items={{
+                content: !status.status.isStable ? 'Updating' : 'Stable',
+              }}
+              label='MIG Status'
+            />
+            <InfoItemRow
+              items={{
+                content: status.currentActions.none ? "None" : "Updating",
+              }}
+              label='Current Action'
+            />
+            <InfoItemRow
+              items={{
+                content: instanceGroup ? instanceGroup.managedInstances.length.toString() : "0",
+              }}
+              label='Instances Count'
+            />            
           </div>
-        </div>
+        </ThemeDiv>
       </div>
       <div className='rollout__row rollout__row--bottom'>
-        <div className='info rollout__info rollout__revisions'>
+        <ThemeDiv className='info rollout__info rollout__revisions'>
           <div className='info__title'>
-            Revisions
+            Revision
           </div>
           <div style={{ marginTop: '1em' }}>
-            <div
+            <EffectDiv
               key={"1"}
               className='revision'
             >
-              <div className='revision__header'>
+              <ThemeDiv className='revision__header'>
                 Revision 1
                 <div style={{marginLeft: 'auto', display: 'flex', alignItems: 'center'}}>
-                    <FontAwesomeIcon
-                      icon={faChevronCircleUp}
-                      className='revision__header__button'
-                      onClick={() => setCollapsed(!collapsed)}
-                    />
+                  <ActionButton
+                      action={() => {
+                        console.log("Deploy: ", instanceGroup ? instanceGroup.instanceGroupTemplate : "None")
+                      }}
+                      label='DEPLOY'
+                      icon='fa-undo-alt'
+                      style={{fontSize: '13px'}}
+                      indicateLoading
+                      shouldConfirm
+                  />
+                  <ThemeDiv className='revision__header__button' onClick={() => setCollapsed(!collapsed)}>
+                    <i className={`fa ${collapsed ? 'fa-chevron-circle-down' : 'fa-chevron-circle-up'}`} />
+                  </ThemeDiv>
                 </div>
-              </div>
-              <div className='revision__images'>
-                <InfoItemRow
-                  key={"img.image"}
-                  label={
-                    "label"
-                  }
-                  items={[
-                    {
-                      content: 'Revision Content'
-                    }
-                  ]}
-                />
+              </ThemeDiv>
+              <ThemeDiv className='revision__images'>
                 <div key={"rsInfo.objectMeta.uid"} style={{marginBottom: '1em'}}>
-                  <div className='pods'>
-                    <Tooltip content={"rsName"}>
-                      <div className='pods__header'>
-                        <Text style={{ maxWidth: '100%' }}>
-                          rsName
-                        </Text>
-                        <Tooltip content={"status"}>
-                          <i className={`fa fa-check-circle status-icon--healthy`} />
-                        </Tooltip>
-                        <div style={{marginLeft: 'auto', flexShrink: 0}}>
-                          Revision 1
-                        </div>
+                  <ThemeDiv className='pods'>
+                    <ThemeDiv className='pods__header'>
+                      <div style={{marginRight: 'auto', flexShrink: 0}}>
+                        {instanceGroup && instanceGroup.instanceGroupTemplate}
                       </div>
-                    </Tooltip>
-                    <div className='pods__container'>
-                      <Menu
-                        items={[
-                          "menu1"
-                        ]}
-                      >
-                        <Tooltip content={
-                          <div>
-                            <div>Status: </div>
-                            <div>name</div>
-                          </div>
-                        }>
-                          <div className={`pod-icon pod-icon--success`}>
-                            <FontAwesomeIcon icon={faCheck} spin={false} />
-                          </div>
-                        </Tooltip>
-                      </Menu>
-                    </div>
-                  </div>
+                    </ThemeDiv>
+                    <ThemeDiv className='pods__container'>
+                      <WaitFor loading={(instanceGroup && instanceGroup.managedInstances || []).length < 1}>
+                        {
+                          instanceGroup && instanceGroup.managedInstances.map((instance: any) => {
+                            return (
+                              <Tooltip content={
+                                <div>
+                                  <div>Name: {instance.instance}</div>
+                                  <div>Status: {instance.status}</div>
+                                  <div>Zone: {instance.zone}</div>
+                                </div>
+                              }>
+                                <ThemeDiv className={`pod-icon pod-icon--success`}>
+                                  <i className={`fa ${instance.status === 'RUNNING' ? 'fa-check-circle' : 'fa-exclamation-triangle'}`} />
+                                </ThemeDiv>
+                              </Tooltip>
+                            );
+                          })
+                        }
+                      </WaitFor>                      
+                    </ThemeDiv>
+                  </ThemeDiv>
                 </div>
-              </div>
-            </div>
+              </ThemeDiv>
+            </EffectDiv>
           </div>
-        </div>
+        </ThemeDiv>
       </div>
     </>
   );
