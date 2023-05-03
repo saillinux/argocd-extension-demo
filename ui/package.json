@@ -6,7 +6,7 @@
   "peerDeependencies": {
     "react": "^16.9.0"
   },
-  "scripts": {    
+  "scripts": {
     "build": "rm -rf dist && NODE_OPTIONS=--openssl-legacy-provider webpack --config ./webpack.config.js && tar -C dist -cvf dist/extension.tar resources"
   },
   "devDependencies": {
@@ -32,6 +32,9 @@
     "webpack-merge": "^5.7.3"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.4.0",
+    "@fortawesome/free-solid-svg-icons": "^6.4.0",
+    "@fortawesome/react-fontawesome": "^0.2.0",
     "argo-ui": "git+https://github.com/argoproj/argo-ui.git",
     "classnames": "2.2.6",
     "isomorphic-fetch": "^3.0.0",

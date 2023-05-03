@@ -1,17 +1,18 @@
 package main
 
 import (
-	"cloud.google.com/go/storage"
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/compute/v1"
-	"google.golang.org/api/iterator"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"cloud.google.com/go/storage"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/iterator"
 )
 
 type Buckets struct {
@@ -133,6 +134,7 @@ func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call the Compute Engine API to get the instances in the instance group
+	// TODO, replace it with computeService.RegionInstanceGroupManagers.ListManagedInstances(project, region, instanceGroupManager).Context(ctx).Do()
 	instanceList, err := client.RegionInstanceGroups.ListInstances(
 		projectId,
 		region,
