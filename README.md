@@ -168,15 +168,25 @@ spec:
 without using ArgoCD extensions proxy
 https://github.com/argoproj-labs/argocd-extension-metrics#enable-the-argo-ui-to-access-the-argocd-metrics-server
 
+
 access the container
 kubectl exec -it argocd-server-78b8784d4b-zgdgj -n argocd -- /bin/bash
+kubectl port-forward svc/argocd-extension-demo -n argocd 8080:80
+
+gcloud builds submit --tag gcr.io/heewonk-bunker/extdemo
+
+gcloud container clusters get-credentials front01-us-central1-c --zone us-central1-c
+gcloud auth application-default login
+
+https://argo-rollouts.readthedocs.io/en/stable/dashboard/
 
 # Google Cloud Go SDK for Managed Instance Group
-https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/compute/v1
-https://raw.githubusercontent.com/google/google-api-go-client/master/compute/v1/compute-gen.go
+https://pkg.go.dev/google.golang.org/api/compute/v1
 
 https://cloud.google.com/compute/docs/reference/rest/v1/regionInstanceGroupManagers/get
 https://cloud.google.com/compute/docs/reference/rest/v1/regionInstanceGroups/listInstances
 
 https://cloud.google.com/compute/docs/instance-groups/rolling-out-updates-to-managed-instance-groups
 https://cloud.google.com/compute/docs/reference/rest/v1/regionInstanceGroupManagers/patch#iam-permissions
+
+

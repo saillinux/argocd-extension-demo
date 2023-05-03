@@ -18,25 +18,33 @@ type Buckets struct {
 	Buckets []string `json:"buckets"`
 }
 
+type InstanceTemplate struct {
+	Name        string   `json:"name"`
+	Region      string   `json:"region"`
+	MachineType string   `json:"machineType"`
+	Network     string   `json:"network"`
+	Subnetwork  string   `json:"subnetwork"`
+	Tags        []string `json:"tags"`
+}
+
 type ManagedInstance struct {
-	ProjectId string `json:"projectId"`
-	Zone      string `json:"zone"`
-	Name      string `json:"instance"`
-	Status    string `json:"status"`
-	SelfLink  string `json:"selfLink"`
+	Name     string `json:"instance"`
+	Zone     string `json:"zone"`
+	Status   string `json:"status"`
+	SelfLink string `json:"selfLink"`
 }
 
 type ManagedInstanceGroup struct {
-	ProjectId             string            `json:"projectId"`
-	Region                string            `json:"region"`
-	Name                  string            `json:"groupName"`
-	TargetSize            int64             `json:"targetSize"`
-	InstanceGroupTemplate string            `json:"instanceGroupTemplate"`
-	BaseInstanceName      string            `json:"baseInstanceName"`
-	ManagedInstances      []ManagedInstance `json:"managedInstances"`
-	UpdatePolicy          string            `json:"updatePolicy"`
-	Status                bool              `json:"status"`
-	SelfLink              string            `json:"selfLink"`
+	ProjectId        string             `json:"projectId"`
+	Region           string             `json:"region"`
+	Name             string             `json:"groupName"`
+	TargetSize       int64              `json:"targetSize"`
+	InstanceTemplate *InstanceTemplate  `json:"instanceTemplate"`
+	BaseInstanceName string             `json:"baseInstanceName"`
+	ManagedInstances []*ManagedInstance `json:"managedInstances"`
+	UpdatePolicy     string             `json:"updatePolicy"`
+	Status           bool               `json:"status"`
+	SelfLink         string             `json:"selfLink"`
 	// TargetPools
 	// StatefulPolicy
 	// Versions
@@ -101,6 +109,7 @@ func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
 
+	// TODO, do we need this?
 	_, err := google.DefaultClient(ctx, compute.CloudPlatformScope)
 	if err != nil {
 		log.Print(err)
@@ -123,18 +132,6 @@ func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// fmt.Printf("%+v\n", instanceGroup)
-
-	// Print out the name and size of the managed instance group
-	/* 	fmt.Printf("Managed instance group id: %d\n", instanceGroup.Id)
-	fmt.Printf("Managed instance group name: %s\n", instanceGroup.Name)
-	fmt.Printf("Managed instance group: %s\n", instanceGroup.InstanceGroup)
-	fmt.Printf("Managed instance group target size: %d\n", instanceGroup.TargetSize)
-	fmt.Printf("Managed instance group template: %s\n", instanceGroup.InstanceTemplate) */
-	/* 	fmt.Println(instanceGroup.Status.IsStable)
-	fmt.Println(len(instanceGroup.Versions))
-	fmt.Println(instanceGroup.UpdatePolicy.Type) */
-
 	// Call the Compute Engine API to get the instances in the instance group
 	instanceList, err := client.RegionInstanceGroups.ListInstances(
 		projectId,
@@ -149,37 +146,43 @@ func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmplParts := strings.Split(instanceGroup.InstanceTemplate, "/")
+	instanceTemplateName := tmplParts[len(tmplParts)-1]
+	instanceTemplate, err := client.InstanceTemplates.Get(projectId, instanceTemplateName).Context(ctx).Do()
+	if err != nil {
+		log.Print(err)
+	}
+
+	it := &InstanceTemplate{
+		Name:        instanceTemplate.Name,
+		Region:      instanceTemplate.Region,
+		MachineType: instanceTemplate.Properties.MachineType,
+		Network:     instanceTemplate.Properties.NetworkInterfaces[0].Network,
+		Subnetwork:  instanceTemplate.Properties.NetworkInterfaces[0].Subnetwork,
+		Tags:        instanceTemplate.Properties.Tags.Items,
+	}
 
 	mig := &ManagedInstanceGroup{
-		ProjectId:             projectId,
-		Region:                region,
-		Name:                  instanceGroupName,
-		TargetSize:            instanceGroup.TargetSize,
-		InstanceGroupTemplate: tmplParts[len(tmplParts)-1],
-		BaseInstanceName:      instanceGroup.BaseInstanceName,
-		UpdatePolicy:          instanceGroup.UpdatePolicy.Type,
-		Status:                instanceGroup.Status.IsStable,
-		SelfLink:              instanceGroup.SelfLink,
-		ManagedInstances:      []ManagedInstance{},
+		ProjectId:        projectId,
+		Region:           region,
+		Name:             instanceGroupName,
+		TargetSize:       instanceGroup.TargetSize,
+		InstanceTemplate: it,
+		BaseInstanceName: instanceGroup.BaseInstanceName,
+		UpdatePolicy:     instanceGroup.UpdatePolicy.Type,
+		Status:           instanceGroup.Status.IsStable,
+		SelfLink:         instanceGroup.SelfLink,
+		ManagedInstances: []*ManagedInstance{},
 	}
 
 	for _, instance := range instanceList.Items {
 		parts := strings.Split(instance.Instance, "/")
-		projectId, zone, instanceName := parts[6], parts[8], parts[10]
+		zone, instanceName := parts[8], parts[10]
 
-		/* 		fmt.Println("=====================================")
-		fmt.Printf("Instance ProjectId: %s\n", projectId)
-		fmt.Printf("Instance Zone: %s\n", zone)
-		fmt.Printf("Instance Name: %s\n", instanceName)
-		fmt.Printf("Instance Status: %s\n", instance.Status)
-		fmt.Printf("Instance Resource URI: %s\n", instance.Instance) */
-
-		mig.ManagedInstances = append(mig.ManagedInstances, ManagedInstance{
-			ProjectId: projectId,
-			Zone:      zone,
-			Name:      instanceName,
-			Status:    instance.Status,
-			SelfLink:  instance.Instance,
+		mig.ManagedInstances = append(mig.ManagedInstances, &ManagedInstance{
+			Name:     instanceName,
+			Zone:     zone,
+			Status:   instance.Status,
+			SelfLink: instance.Instance,
 		})
 	}
 
@@ -188,7 +191,6 @@ func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// fmt.Println(mig)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(migJson)
