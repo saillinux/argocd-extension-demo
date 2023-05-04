@@ -7,7 +7,7 @@ import {
   Menu,
   ThemeDiv,
   Tooltip,  
-  WaitFor,
+  WaitFor,  
 } from 'argo-ui/v2';
 import "./index.scss";
 
@@ -36,6 +36,7 @@ const getInstanceGroup = async (projectId: string, region: string, instanceGroup
 };
 
 export const Extension = (props: {
+  application: any;
   tree: any;
   resource: any;
 }) => {
@@ -44,11 +45,12 @@ export const Extension = (props: {
 
   console.log(props);
 
-  const { metadata: { annotations, name }, spec, status } = props.resource;
-  const { location, targetSize } = spec;
-  
+  // helm.parameters[0].{name,value} history[0].helm.parameters.{name,value}
+  const { spec: { source: { helm: { parameters } } }, status: { history }} = props.application;
+  const { metadata: { annotations, name }, spec: { location, targetSize, updatePolicy, distributionPolicy } } = props.resource;
+
   const projectId = annotations['cnrm.cloud.google.com/project-id'];
-  
+
   React.useEffect(() => {
     if (instanceGroup) {
       return;
@@ -75,12 +77,14 @@ export const Extension = (props: {
               <InfoItemRow
                 items={{
                   content: location,
+                  kind: InfoItemKind.BlueGreen,
                   icon: 'fa-map-marker'
                 }}
                 label='Location'
               />
               <InfoItemRow
                 items={{
+                  kind: InfoItemKind.Canary,
                   content: targetSize,
                   icon: 'fa-balance-scale-right'
                 }}
@@ -88,19 +92,31 @@ export const Extension = (props: {
               />
               <InfoItemRow
                 items={{
-                  kind: InfoItemKind.BlueGreen,
-                  content: spec.distributionPolicy.targetShape,
+                  kind: InfoItemKind.Colored,
+                  content: distributionPolicy.targetShape,
                   icon: 'fa-balance-scale'
                 }}
                 label='Distribution Policy'
               />
               <InfoItemRow
                 items={{
-                  content: spec.updatePolicy.instanceRedistributionType,
-                  kind: InfoItemKind.Canary,
+                  kind: InfoItemKind.Colored,
+                  content: updatePolicy.instanceRedistributionType,
                 }}
                 label='Update Policy'
-              />                                                              
+              />
+              <InfoItemRow
+                items={{
+                  content: updatePolicy.maxSurge.fixed,
+                }}
+                label='Max Surge'
+              />
+              <InfoItemRow
+                items={{
+                  content: updatePolicy.maxUnavailable.fixed,
+                }}
+                label='Max Unavailable'
+              />                        
               {' '}
             </ThemeDiv>
         </div>
@@ -120,15 +136,15 @@ export const Extension = (props: {
           }}>
             <InfoItemRow
               items={{
-                kind: InfoItemKind.Canary,
-                content: !status.status.isStable ? 'Updating' : 'Stable',
+                kind: instanceGroup ? instanceGroup.status ?  InfoItemKind.BlueGreen : InfoItemKind.Colored : InfoItemKind.Default,
+                content: instanceGroup ? instanceGroup.status ? 'Stable' : 'Updating' : 'Unknown',
               }}
-              label='MIG Status'
+              label='Current Status'
             />
             <InfoItemRow
               items={{
-                kind: InfoItemKind.BlueGreen,
-                content: status.currentActions.none ? "None" : "Updating",                
+                kind: instanceGroup ? instanceGroup.status ?  InfoItemKind.BlueGreen : InfoItemKind.Colored : InfoItemKind.Default,
+                content: instanceGroup ? instanceGroup.status ? "None" : "Updating" : 'Unknown',                
               }}
               label='Current Action'              
             />
@@ -136,8 +152,20 @@ export const Extension = (props: {
               items={{
                 content: instanceGroup ? instanceGroup.managedInstances.length.toString() : "0",
               }}
-              label='Instances Count'
-            />            
+              label='Current Size'
+            />
+            <InfoItemRow
+              items={{
+                content: parameters[1]['value'],
+              }}
+              label={parameters[1]['name']}
+            />               
+            <InfoItemRow
+              items={{
+                content: parameters[0]['value'],
+              }}
+              label={parameters[0]['name']}              
+            />
           </div>
         </ThemeDiv>
       </div>
@@ -272,6 +300,37 @@ export const Extension = (props: {
         <ThemeDiv className='info steps'>
           <ThemeDiv className='info__title'>History</ThemeDiv>
           <div style={{marginTop: '1em'}}>
+            {
+              history.map((item: any, index: number) => {
+                const { deployedAt, source: { helm: { parameters } } } = item;
+                console.log("history param: ", parameters, parameters[0], parameters[1]);
+
+                const [image, version] = parameters;
+
+                return (
+                  <EffectDiv
+                    key={`history-${index}`}
+                    className='revision'
+                  >
+                    <ThemeDiv className='revision__header'>
+                      {deployedAt.split('T')[0]}
+                    </ThemeDiv>
+                    <InfoItemRow
+                      items={{
+                        content: version.value,
+                      }}
+                      label={version.name}
+                    />
+                    <InfoItemRow
+                      items={{
+                        content: image.value,
+                      }}
+                      label={image.name}
+                    />                    
+                  </EffectDiv>
+                );
+              })
+            }
           </div>
       </ThemeDiv>        
       </div>

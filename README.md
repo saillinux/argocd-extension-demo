@@ -65,7 +65,19 @@ https://argo-cd.readthedocs.io/en/latest/operator-manual/rbac/#the-extensions-re
 argocd admin settings rbac can admin get applications "default/argocd-extension-demo"  -n argocd
 argocd admin settings rbac can admin invoke extensions extdemo -n argocd
 
-argocd-rbac-cm
+create users by adding the following in argocd-cm ConfigMap
+
+```
+data:
+  accounts.heewonk: apiKey,login
+  accounts.reo: apiKey,login
+```
+
+update password of the user
+
+argocd account update-password --account <user>
+
+Update the argocd-rbac-cm ConfigMap to assign role to a user
 
 ```
 data:

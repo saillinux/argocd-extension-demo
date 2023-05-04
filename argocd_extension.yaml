@@ -7,4 +7,4 @@ metadata:
 spec:
   sources:
     - web:
-        url: https://github.com/saillinux/argocd-extension-demo/releases/download/v0.1.2/extension30.tar
+        url: https://github.com/saillinux/argocd-extension-demo/releases/download/v0.1.2/extension2.tar
