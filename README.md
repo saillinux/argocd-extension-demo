@@ -1,9 +1,26 @@
 
-# upgrade to argocd v2.7-rc2
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.7.0-rc2/manifests/install.yaml
+# install ArgoCD along with ArgoCD Extension
+
+https://github.com/argoproj-labs/argocd-extensions
+
+```
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+# base Argo CD components
+- https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/ha/install.yaml
+
+components:
+# extensions controller component
+- https://github.com/argoproj-labs/argocd-extensions/manifests
+```
+
+# or upgrade to argocd v2.7.1
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.7.1/manifests/install.yaml
 
 # upgrade argocd cli as well
-curl -sSL -o argocd-darwin-amd64 https://github.com/argoproj/argo-cd/releases/download/v2.7.0-rc2/argocd-darwin-amd64
+curl -sSL -o argocd-darwin-amd64 https://github.com/argoproj/argo-cd/releases/download/v2.7.1/argocd-darwin-amd64
 sudo install -m 555 argocd-darwin-amd64 /usr/local/bin/argocd
 rm argocd-darwin-amd64
 
