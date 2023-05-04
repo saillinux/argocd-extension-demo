@@ -2,7 +2,9 @@ import * as React from 'react';
 import {
   ActionButton,
   EffectDiv,
+  InfoItemKind,
   InfoItemRow,
+  Menu,
   ThemeDiv,
   Tooltip,  
   WaitFor,
@@ -86,6 +88,7 @@ export const Extension = (props: {
               />
               <InfoItemRow
                 items={{
+                  kind: InfoItemKind.BlueGreen,
                   content: spec.distributionPolicy.targetShape,
                   icon: 'fa-balance-scale'
                 }}
@@ -94,35 +97,10 @@ export const Extension = (props: {
               <InfoItemRow
                 items={{
                   content: spec.updatePolicy.instanceRedistributionType,
+                  kind: InfoItemKind.Canary,
                 }}
                 label='Update Policy'
-              />
-              <InfoItemRow
-                items={{
-                  content: spec.updatePolicy.maxSurge.fixed,
-                  icon: 'fa-balance-scale'
-                }}
-                label='Maximum Surge'
-              />
-              <InfoItemRow
-                items={{
-                  content: spec.updatePolicy.maxUnavailable.fixed,
-                  icon: 'fa-balance-scale'
-                }}
-                label='Maximum Unavailable'
-              />
-              <InfoItemRow
-                items={{
-                  content: spec.updatePolicy.minimalAction,
-                }}
-                label='Minimal Action'
-              />
-              <InfoItemRow
-                items={{
-                  content: spec.updatePolicy.replacementMethod,
-                }}
-                label='Replace Method'
-              />                                                                
+              />                                                              
               {' '}
             </ThemeDiv>
         </div>
@@ -142,15 +120,17 @@ export const Extension = (props: {
           }}>
             <InfoItemRow
               items={{
+                kind: InfoItemKind.Canary,
                 content: !status.status.isStable ? 'Updating' : 'Stable',
               }}
               label='MIG Status'
             />
             <InfoItemRow
               items={{
-                content: status.currentActions.none ? "None" : "Updating",
+                kind: InfoItemKind.BlueGreen,
+                content: status.currentActions.none ? "None" : "Updating",                
               }}
-              label='Current Action'
+              label='Current Action'              
             />
             <InfoItemRow
               items={{
@@ -164,26 +144,31 @@ export const Extension = (props: {
       <div className='rollout__row rollout__row--bottom'>
         <ThemeDiv className='info rollout__info rollout__revisions'>
           <div className='info__title'>
-            Revision
+            Revisions
           </div>
           <div style={{ marginTop: '1em' }}>
             <EffectDiv
-              key={"1"}
+              key={"2"}
               className='revision'
             >
               <ThemeDiv className='revision__header'>
-                Revision 1
+                Revision 2
                 <div style={{marginLeft: 'auto', display: 'flex', alignItems: 'center'}}>
-                  <ActionButton
-                      action={() => {
-                        console.log("Deploy: ", instanceGroup ? instanceGroup.instanceGroupTemplate : "None")
-                      }}
-                      label='DEPLOY'
-                      icon='fa-undo-alt'
-                      style={{fontSize: '13px'}}
-                      indicateLoading
-                      shouldConfirm
-                  />
+                  <Menu
+                    items={[
+                      'Canary',
+                      'Rollout',      
+                    ]}
+                  >
+                    <ActionButton
+                        action={() => {
+                          console.log("Deploy: ", instanceGroup ? instanceGroup.instanceGroupTemplate : "None")
+                        }}
+                        label='DEPLOY'
+                        icon='fa-undo-alt'
+                        style={{fontSize: '12px'}}
+                    />
+                  </Menu>
                   <ThemeDiv className='revision__header__button' onClick={() => setCollapsed(!collapsed)}>
                     <i className={`fa ${collapsed ? 'fa-chevron-circle-down' : 'fa-chevron-circle-up'}`} />
                   </ThemeDiv>
@@ -222,6 +207,66 @@ export const Extension = (props: {
                 </div>
               </ThemeDiv>
             </EffectDiv>
+            <EffectDiv
+              key={"1"}
+              className='revision'
+            >
+              <ThemeDiv className='revision__header'>
+                Revision 1
+                <div style={{marginLeft: 'auto', display: 'flex', alignItems: 'center'}}>
+                  <Menu
+                    items={[
+                      'Canary',
+                      'Rollout',      
+                    ]}
+                  >
+                    <ActionButton
+                        action={() => {
+                          console.log("Deploy: ", instanceGroup ? instanceGroup.instanceGroupTemplate : "None")
+                        }}
+                        label='DEPLOY'
+                        icon='fa-undo-alt'
+                        style={{fontSize: '12px'}}
+                    />
+                  </Menu>
+                  <ThemeDiv className='revision__header__button' onClick={() => setCollapsed(!collapsed)}>
+                    <i className={`fa ${collapsed ? 'fa-chevron-circle-down' : 'fa-chevron-circle-up'}`} />
+                  </ThemeDiv>
+                </div>
+              </ThemeDiv>
+              <ThemeDiv className='revision__images'>
+                <div key={"rsInfo.objectMeta.uid"} style={{marginBottom: '1em'}}>
+                  <ThemeDiv className='pods'>
+                    <ThemeDiv className='pods__header'>
+                      <div style={{marginRight: 'auto', flexShrink: 0}}>
+                        {instanceGroup && instanceGroup.instanceGroupTemplate}
+                      </div>
+                    </ThemeDiv>
+                    <ThemeDiv className='pods__container'>
+                      <WaitFor loading={(instanceGroup && instanceGroup.managedInstances || []).length < 1}>
+                        {
+                          instanceGroup && instanceGroup.managedInstances.map((instance: any) => {
+                            return (
+                              <Tooltip content={
+                                <div>
+                                  <div>Name: {instance.instance}</div>
+                                  <div>Status: {instance.status}</div>
+                                  <div>Zone: {instance.zone}</div>
+                                </div>
+                              }>
+                                <ThemeDiv className={`pod-icon pod-icon--success`}>
+                                  <i className={`fa ${instance.status === 'RUNNING' ? 'fa-check-circle' : 'fa-exclamation-triangle'}`} />
+                                </ThemeDiv>
+                              </Tooltip>
+                            );
+                          })
+                        }
+                      </WaitFor>                      
+                    </ThemeDiv>
+                  </ThemeDiv>
+                </div>
+              </ThemeDiv>
+            </EffectDiv>            
           </div>
         </ThemeDiv>
         <ThemeDiv className='info steps'>
