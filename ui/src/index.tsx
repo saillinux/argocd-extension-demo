@@ -224,6 +224,11 @@ export const Extension = (props: {
             </EffectDiv>
           </div>
         </ThemeDiv>
+        <ThemeDiv className='info steps'>
+          <ThemeDiv className='info__title'>History</ThemeDiv>
+          <div style={{marginTop: '1em'}}>
+          </div>
+      </ThemeDiv>        
       </div>
     </>
   );
