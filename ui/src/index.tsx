@@ -49,11 +49,12 @@ const listInstanceTemplates = async (projectId: string) => {
 };
 
 // /compute/instancegroup/update/heewonk-bunker/us-west1/heewonk-bunker-argocd-cc-demo-instance-group?strategy=canary&target_template=heewonk-bunker-argocd-cc-demo-instance-template-12
-const deployRevision = async (projectId: string, region: string, instanceGroupName: string, startegy: string, instanceTemplate: string) => {
+const deployRevision = async (projectId: string, region: string, instanceGroupName: string, startegy: string, instanceTemplate: string, targetSize: string) => {
   const myHeaders = createHttpHeaders();
   const params = {
     strategy: startegy,
     target_template: instanceTemplate,
+    target_size: targetSize,
   };
   const queryParams = new URLSearchParams(params).toString();
   const myRequest = new Request(`${EXTPATH}/compute/instancegroup/update/${projectId}/${region}/${instanceGroupName}?` + queryParams, {
@@ -215,37 +216,78 @@ const RolloutTop = (
 
 const RolloutRevision = (
   props: {
-    revision: string;
+    instanceTemplate: string;
     instanceGroup: any;
   }
 ) => {
-  const { revision, instanceGroup } = props;
+  const { instanceTemplate, instanceGroup } = props;
 
   if (!instanceGroup) {
     return null;
   }
   
-  const { projectId, region, groupName } = instanceGroup;
+  const { projectId, region, groupName, managedInstances, versions } = instanceGroup;
   const [collapsed, setCollapsed] = React.useState(true);
+  const [isDone, setIsDone] = React.useState(true);
+
+  // determine the revision number using the template name suffix, it can be either number or hash
+  const revisionRegex = new RegExp(/.+\-(.+?)$/);
+  const revision = instanceTemplate.match(revisionRegex);
+  if (!revision) {
+    return null;
+  }
+
+  let isDeployed = false;
+  let canaryTemplate: any = null;
+  versions.forEach((version: any) => {
+    if (version.targetSize > 0) {
+      canaryTemplate = version.name;
+    }
+    isDeployed = version.name === instanceTemplate;
+  });
 
   return (
     <EffectDiv
-      key={revision}
+      key={revision[1]}
       className='revision'
     >
       <ThemeDiv className='revision__header'>
-        {revision}
+        Revision {revision[1]}
         <div style={{marginLeft: 'auto', display: 'flex', alignItems: 'center'}}>
+          { instanceTemplate !== canaryTemplate && !isDeployed &&
+            <ActionButton
+                action={() => {                
+                  (async () => {
+                    const status = await deployRevision(projectId, region, groupName, "canary", instanceTemplate, "1");
+                    console.log("Status: ", status);
+                  })();
+                }}
+                label='Canary'
+                icon='fa-dove'
+                style={{
+                  color: "#e4aa37",
+                  fontSize: '12px',
+                }}
+                shouldConfirm
+                disabled={false}
+            />
+          }
           <ActionButton
               action={() => {                
                 (async () => {
-                  const status = await deployRevision(projectId, region, groupName, "rollout", revision);
+                  setIsDone(false);
+                  const status = await deployRevision(projectId, region, groupName, "rolling", instanceTemplate, "0");
                   console.log("Status: ", status);
+                  if (status == "ok") {
+                    setIsDone(true);
+                  }
                 })();
               }}
-              label='DEPLOY'
+              label={instanceTemplate !== canaryTemplate ? 'DEPLOY' : 'FULL PROMOTE'}
               icon='fa-undo-alt'
               style={{fontSize: '12px'}}
+              shouldConfirm
+              disabled={!isDone}
           />
           <ThemeDiv className='revision__header__button' onClick={() => setCollapsed(!collapsed)}>
             <i className={`fa ${collapsed ? 'fa-chevron-circle-down' : 'fa-chevron-circle-up'}`} />
@@ -257,30 +299,33 @@ const RolloutRevision = (
           <ThemeDiv className='pods'>
             <ThemeDiv className='pods__header'>
               <div style={{marginRight: 'auto', flexShrink: 0}}>
-                {instanceGroup && instanceGroup.instanceGroupTemplate}
+                {instanceTemplate}
               </div>
             </ThemeDiv>
-            <ThemeDiv className='pods__container'>
-              <WaitFor loading={(instanceGroup && instanceGroup.managedInstances || []).length < 1}>
-                {
-                  instanceGroup && instanceGroup.managedInstances.map((instance: any) => {
-                    return (
-                      <Tooltip content={
-                        <div>
-                          <div>Name: {instance.instance}</div>
-                          <div>Status: {instance.status}</div>
-                          <div>Zone: {instance.zone}</div>
-                        </div>
-                      }>
-                        <ThemeDiv className={`pod-icon pod-icon--success`}>
-                          <i className={`fa ${instance.status === 'RUNNING' ? 'fa-check-circle' : 'fa-exclamation-triangle'}`} />
-                        </ThemeDiv>
-                      </Tooltip>
-                    );
-                  })
-                }
-              </WaitFor>                      
-            </ThemeDiv>
+            { isDeployed &&
+              <ThemeDiv className='pods__container'>
+                <WaitFor loading={(managedInstances || []).length < 1}>
+                  {
+                    managedInstances.map((instance: any) => {
+                      return (
+                        <Tooltip content={
+                          <div>
+                            <div>Name: {instance.instance}</div>
+                            <div>Status: {instance.status}</div>
+                            <div>Zone: {instance.zone}</div>
+                            <div>Template: {instance.instanceTemplate}</div>
+                          </div>
+                        }>
+                          <ThemeDiv className={`pod-icon pod-icon--${instance.instanceTemplate === canaryTemplate ? 'canary' : 'success'}`}>
+                            <i className={`fa ${instance.status === 'RUNNING' ? instance.instanceTemplate === canaryTemplate ? 'fa-dove' : 'fa-check-circle' : 'fa-exclamation-triangle'}`} />
+                          </ThemeDiv>
+                        </Tooltip>
+                      );
+                    })
+                  }
+                </WaitFor>                      
+              </ThemeDiv>
+            }
           </ThemeDiv>
         </div>
       </ThemeDiv>
@@ -290,17 +335,16 @@ const RolloutRevision = (
 
 const RolloutRevisions = (
   props: {
-    application: any;
     projectId: string;
+    application: any;
     instanceGroup: any;
   }
 ) => {
-  const { application: { metadata: { name } }, projectId, instanceGroup } = props;
-  const [revisions, setRevisions] = React.useState([]);
-  // console.log("application name: ", name);
-
+  const { projectId, application: { metadata: { name } }, instanceGroup } = props;
+  const [instanceTemplates, setInstanceTemplates] = React.useState([]);
+  
   React.useEffect(() => {
-    if (revisions.length > 0) {
+    if (instanceTemplates.length > 0) {
       return;
     }
 
@@ -309,8 +353,7 @@ const RolloutRevisions = (
       const regexMatch = new RegExp(name);
       const instanceTemplatesFiltered = instanceTemplates.filter((instanceTemplate: string) => regexMatch.test(instanceTemplate));
       instanceTemplatesFiltered.sort().reverse();
-      // console.log("filtered: ", instanceTemplatesFiltered);
-      setRevisions(instanceTemplatesFiltered);
+      setInstanceTemplates(instanceTemplatesFiltered);
     })();
     return () => {
       console.log("");
@@ -324,11 +367,11 @@ const RolloutRevisions = (
       </div>
       <div style={{ marginTop: '1em' }}>
         {
-          revisions.map((revision: any, index: number) => {
+          instanceTemplates.map((instanceTemplate: any, index: number) => {
             return (
               <RolloutRevision
-                key={`revision-${index}`}
-                revision={revision}
+                key={`instanceTemplate-${index}`}
+                instanceTemplate={instanceTemplate}
                 instanceGroup={instanceGroup}
               />
             );
@@ -386,18 +429,18 @@ const RolloutHistory = (
 
 const RolloutBottom = (
   props: {
-    application: any;
     projectId: string;
+    application: any;
     instanceGroup: any;
   }
 ) => {
-  const { application, projectId, instanceGroup } = props;
+  const { projectId, application, instanceGroup } = props;
 
   return (
     <ThemeDiv className='rollout__row rollout__row--bottom'>
       <RolloutRevisions
-        application={application}
         projectId={projectId}
+        application={application}        
         instanceGroup={instanceGroup}
       />
       <RolloutHistory
@@ -412,7 +455,7 @@ export const Extension = (props: {
   tree: any;
   resource: any;
 }) => {
-  console.log(props);
+  // console.log(props);
   const [instanceGroup, setInstanceGroup] = React.useState(null);
   const { metadata: { annotations, name }, spec: { location } } = props.resource;
 
@@ -441,8 +484,8 @@ export const Extension = (props: {
         instanceGroup={instanceGroup}
       />
       <RolloutBottom
-        application={props.application}
         projectId={projectId}
+        application={props.application}
         instanceGroup={instanceGroup}
       />      
     </>

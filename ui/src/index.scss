@@ -430,6 +430,15 @@ $POD_SIZE: 30px;
         }
     }
 
+    &--canary {
+        background-color: $canary;
+        color: white;
+        border: 1px solid $canary;
+        &:hover {
+            border-color: $coral;
+        }
+    }
+
     &--dark#{&}--success {
         background-color: $forest;
         color: $lime;

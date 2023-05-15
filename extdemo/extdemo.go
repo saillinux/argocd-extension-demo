@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"google.golang.org/api/compute/v1"
@@ -15,15 +17,18 @@ type InstanceTemplate struct {
 	Name        string   `json:"name"`
 	MachineType string   `json:"machineType"`
 	Network     string   `json:"network"`
+	SourceImage string   `json:"sourceImage"`
 	Subnetwork  string   `json:"subnetwork"`
 	Tags        []string `json:"tags"`
+	TargetSize  int64    `json:"targetSize"`
 }
 
 type ManagedInstance struct {
-	Name     string `json:"instance"`
-	Zone     string `json:"zone"`
-	Status   string `json:"status"`
-	SelfLink string `json:"selfLink"`
+	Name             string `json:"instance"`
+	InstanceTemplate string `json:"instanceTemplate"`
+	Zone             string `json:"zone"`
+	Status           string `json:"status"`
+	SelfLink         string `json:"selfLink"`
 }
 
 type ManagedInstanceGroup struct {
@@ -37,9 +42,6 @@ type ManagedInstanceGroup struct {
 	UpdatePolicy     string              `json:"updatePolicy"`
 	Status           bool                `json:"status"`
 	SelfLink         string              `json:"selfLink"`
-	// TargetPools
-	// StatefulPolicy
-	// Versions
 }
 
 func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
@@ -72,21 +74,9 @@ func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// client.RegionInstanceGroupManagers.Patch(projectId, region, instanceGroupName, &compute.RegionInstanceGroupManager{}).Context(ctx).Do()
-
-	// Call the Compute Engine API to get the instances in the instance group
-	// TODO, replace it with computeService.RegionInstanceGroupManagers.ListManagedInstances(project, region, instanceGroupManager).Context(ctx).Do()
-	instanceList, err := client.RegionInstanceGroups.ListInstances(
-		projectId,
-		region,
-		instanceGroupName,
-		&compute.RegionInstanceGroupsListInstancesRequest{},
-	).Do()
-
+	instanceList, err := client.RegionInstanceGroupManagers.ListManagedInstances(projectId, region, instanceGroupName).Context(ctx).Do()
 	if err != nil {
-		log.Printf("Failed to retrieve instances from instance group: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		log.Fatal(err)
 	}
 
 	var versions []*InstanceTemplate
@@ -103,14 +93,15 @@ func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 			Name:        instanceTemplate.Name,
 			MachineType: instanceTemplate.Properties.MachineType,
 			Network:     instanceTemplate.Properties.NetworkInterfaces[0].Network,
+			SourceImage: instanceTemplate.Properties.Disks[0].InitializeParams.SourceImage,
 			Subnetwork:  instanceTemplate.Properties.NetworkInterfaces[0].Subnetwork,
 			Tags:        instanceTemplate.Properties.Tags.Items,
+			TargetSize:  0,
 		}
 
 		versions = append(versions, it)
 	} else {
 		for _, version := range instanceGroup.Versions {
-			log.Printf("Version: %s, %s, %d", version.Name, version.InstanceTemplate, version.TargetSize.Fixed)
 			tmplParts := strings.Split(version.InstanceTemplate, "/")
 			instanceTemplateName := tmplParts[len(tmplParts)-1]
 			instanceTemplate, err := client.InstanceTemplates.Get(projectId, instanceTemplateName).Context(ctx).Do()
@@ -122,8 +113,10 @@ func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 				Name:        instanceTemplate.Name,
 				MachineType: instanceTemplate.Properties.MachineType,
 				Network:     instanceTemplate.Properties.NetworkInterfaces[0].Network,
+				SourceImage: instanceTemplate.Properties.Disks[0].InitializeParams.SourceImage,
 				Subnetwork:  instanceTemplate.Properties.NetworkInterfaces[0].Subnetwork,
 				Tags:        instanceTemplate.Properties.Tags.Items,
+				TargetSize:  version.TargetSize.Fixed,
 			}
 
 			versions = append(versions, it)
@@ -143,14 +136,21 @@ func getManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 		ManagedInstances: []*ManagedInstance{},
 	}
 
-	for _, instance := range instanceList.Items {
+	for _, instance := range instanceList.ManagedInstances {
 		parts := strings.Split(instance.Instance, "/")
 		zone, instanceName := parts[8], parts[10]
+		// when an instance is being deleted the reference value to the version is no longer exist and causes invalid memory access
+		if instance.Version == nil {
+			continue
+		}
+		tmplParts := strings.Split(instance.Version.InstanceTemplate, "/")
+		instanceTemplateName := tmplParts[len(tmplParts)-1]
 		mig.ManagedInstances = append(mig.ManagedInstances, &ManagedInstance{
-			Name:     instanceName,
-			Zone:     zone,
-			Status:   instance.Status,
-			SelfLink: instance.Instance,
+			Name:             instanceName,
+			InstanceTemplate: instanceTemplateName,
+			Zone:             zone,
+			Status:           instance.InstanceStatus,
+			SelfLink:         instance.Instance,
 		})
 	}
 
@@ -179,14 +179,27 @@ func updateManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing parameter(s)", http.StatusBadRequest)
 		return
 	}
-	log.Print(strategy)
 
 	targetTemplate := r.URL.Query().Get("target_template")
 	if targetTemplate == "" {
 		http.Error(w, "Missing parameter(s)", http.StatusBadRequest)
 		return
 	}
-	log.Print(targetTemplate)
+
+	targetSizeStr := r.URL.Query().Get("target_size")
+	if targetSizeStr == "" {
+		http.Error(w, "Missing parameter(s)", http.StatusBadRequest)
+		return
+	}
+
+	targetSize, err := strconv.ParseInt(targetSizeStr, 10, 64)
+
+	if err != nil {
+		fmt.Println("Error during conversion")
+		return
+	}
+
+	log.Printf("Deployment %s %s %d", strategy, targetTemplate, targetSize)
 
 	ctx := context.Background()
 
@@ -240,7 +253,7 @@ func updateManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 			Versions: []*compute.InstanceGroupManagerVersion{
 				{
 					TargetSize: &compute.FixedOrPercent{
-						Fixed: 1,
+						Fixed: targetSize,
 					},
 					InstanceTemplate: targetTemplateSelfLink,
 				},
@@ -250,7 +263,9 @@ func updateManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 	} else {
-		log.Printf("strategy: %s", strategy)
+		log.Printf("Unknown strategy: %s", strategy)
+		http.Error(w, "Unknown strategy", http.StatusBadRequest)
+		return
 	}
 
 	// Make the PATCH request to update the instance group manager
