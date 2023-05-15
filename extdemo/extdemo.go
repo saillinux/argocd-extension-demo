@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"google.golang.org/api/compute/v1"
-	"google.golang.org/api/option"
 	"log"
 	"net/http"
 	"strings"
+
+	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/option"
 )
 
 type InstanceTemplate struct {
@@ -203,22 +204,33 @@ func updateManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Current: %s", instanceTemplate.SelfLink)
+	log.Printf("Target instance template: %s", instanceTemplate.SelfLink)
+
+	instanceGroup, err := client.RegionInstanceGroupManagers.Get(projectId, region, instanceGroupName).Context(ctx).Do()
+	if err != nil {
+		// log.Fatalf("Failed to retrieve managed instance group: %v", err)
+		log.Printf("Failed to retrieve managed instance group: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Current instance template: %s", instanceGroup.InstanceTemplate)
 
 	var patchRequest *compute.InstanceGroupManager = nil
 
-	splitSelfLink := strings.Split(instanceTemplate.SelfLink, "/")
-	currentTemplate := splitSelfLink[len(splitSelfLink)-1]
-
-	newInstanceTemplateSelfLink := strings.Replace(instanceTemplate.SelfLink, currentTemplate, targetTemplate, 1)
-	log.Printf("New: %s", newInstanceTemplateSelfLink)
+	currentTemplateLink := instanceGroup.InstanceTemplate
+	targetTemplateSelfLink := instanceTemplate.SelfLink
 
 	if strategy == "rolling" {
 		// Create the instance group manager patch request with the new instance template
 		patchRequest = &compute.InstanceGroupManager{
-			InstanceTemplate: newInstanceTemplateSelfLink,
+			InstanceTemplate: targetTemplateSelfLink,
 			UpdatePolicy: &compute.InstanceGroupManagerUpdatePolicy{
-				Type: "PROACTIVE",
+				Type:          "PROACTIVE",
+				MinimalAction: "REPLACE",
+				MaxUnavailable: &compute.FixedOrPercent{
+					Fixed: 0,
+				},
 			},
 		}
 	} else if strategy == "canary" {
@@ -230,13 +242,15 @@ func updateManagedInstanceGroupHandler(w http.ResponseWriter, r *http.Request) {
 					TargetSize: &compute.FixedOrPercent{
 						Fixed: 1,
 					},
-					InstanceTemplate: newInstanceTemplateSelfLink,
+					InstanceTemplate: targetTemplateSelfLink,
 				},
 				{
-					InstanceTemplate: instanceTemplate.SelfLink,
+					InstanceTemplate: currentTemplateLink,
 				},
 			},
 		}
+	} else {
+		log.Printf("strategy: %s", strategy)
 	}
 
 	// Make the PATCH request to update the instance group manager
