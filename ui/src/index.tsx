@@ -294,7 +294,7 @@ const RolloutRevision = (
                             <div>Template: {instance.instanceTemplate}</div>
                           </div>
                         }>
-                          <ThemeDiv className={`pod-icon pod-icon--${instance.instanceTemplate === canaryTemplate ? 'canary' : 'success'}`}>
+                          <ThemeDiv className={`pod-icon pod-icon--${instance.status === 'RUNNING' ? instance.instanceTemplate === canaryTemplate ? 'canary' : 'success' : 'pending'}`}>
                             <i className={`fa ${instance.status === 'RUNNING' ? instance.instanceTemplate === canaryTemplate ? 'fa-dove' : 'fa-check-circle' : 'fa-exclamation-triangle'}`} />
                           </ThemeDiv>
                         </Tooltip>
