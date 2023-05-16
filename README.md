@@ -233,7 +233,7 @@ Now apply the change then the controller will install them in the right director
 kubectl apply -f argocd_extension.yaml -n argocd
 ```
 
-# Config Connect Application Demo
+# Config Connector Application Demo
 
 https://github.com/saillinux/argocd-demo
 
