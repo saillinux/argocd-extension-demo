@@ -2,6 +2,10 @@
 
 ## GKE Cluster
 
+### Config Connector
+
+Make sure to enable config connector when a GKE cluster is being created.
+
 ### Workload Identity
 
 We will need Workload Identity to allow our extension demo to access Google Cloud Compute API via its service account to control managed instance groups.
