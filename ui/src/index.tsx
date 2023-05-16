@@ -4,12 +4,14 @@ import {
   EffectDiv,
   InfoItemKind,
   InfoItemRow,
-  // Menu,
+  Input,
   ThemeDiv,
   Tooltip,  
   WaitFor,
 } from 'argo-ui/v2';
 import "./index.scss";
+
+import {Popup} from "./components/popup";
 
 const EXTPATH = "/extensions/extdemo";
 
@@ -147,7 +149,7 @@ const RolloutStatus = (
         height: '2em'
       }}>
         <ThemeDiv className='info__title' style={{marginBottom: '0'}}>
-            Status
+          Status
         </ThemeDiv>
       </div>
       <div style={{
@@ -208,7 +210,7 @@ const RolloutTop = (
       />
       <RolloutStatus
         application={application}
-        instanceGroup={instanceGroup}     
+        instanceGroup={instanceGroup}  
       />
     </ThemeDiv>
   );
@@ -228,7 +230,9 @@ const RolloutRevision = (
   
   const { projectId, region, groupName, managedInstances, versions } = instanceGroup;
   const [collapsed, setCollapsed] = React.useState(true);
-  const [isDone, setIsDone] = React.useState(true);
+  const [toggleDeploy, setToggleDeploy] = React.useState(false);
+  const [strategy, setStrategy] = React.useState('rolling');
+  const [targetSize, setTargetSize] = React.useState("1");
 
   // determine the revision number using the template name suffix, it can be either number or hash
   const revisionRegex = new RegExp(/.+\-(.+?)$/);
@@ -254,40 +258,14 @@ const RolloutRevision = (
       <ThemeDiv className='revision__header'>
         Revision {revision[1]}
         <div style={{marginLeft: 'auto', display: 'flex', alignItems: 'center'}}>
-          { instanceTemplate !== canaryTemplate && !isDeployed &&
-            <ActionButton
-                action={() => {                
-                  (async () => {
-                    const status = await deployRevision(projectId, region, groupName, "canary", instanceTemplate, "1");
-                    console.log("Status: ", status);
-                  })();
-                }}
-                label='Canary'
-                icon='fa-dove'
-                style={{
-                  color: "#e4aa37",
-                  fontSize: '12px',
-                }}
-                shouldConfirm
-                disabled={false}
-            />
-          }
           <ActionButton
               action={() => {                
-                (async () => {
-                  setIsDone(false);
-                  const status = await deployRevision(projectId, region, groupName, "rolling", instanceTemplate, "0");
-                  console.log("Status: ", status);
-                  if (status == "ok") {
-                    setIsDone(true);
-                  }
-                })();
+                setToggleDeploy(true);
               }}
               label={instanceTemplate !== canaryTemplate ? 'DEPLOY' : 'FULL PROMOTE'}
               icon='fa-undo-alt'
-              style={{fontSize: '12px'}}
-              shouldConfirm
-              disabled={!isDone}
+              style={{fontSize: '12px'}}              
+              disabled={toggleDeploy}
           />
           <ThemeDiv className='revision__header__button' onClick={() => setCollapsed(!collapsed)}>
             <i className={`fa ${collapsed ? 'fa-chevron-circle-down' : 'fa-chevron-circle-up'}`} />
@@ -329,6 +307,81 @@ const RolloutRevision = (
           </ThemeDiv>
         </div>
       </ThemeDiv>
+      {toggleDeploy &&
+        <Popup
+          title={`Choose a Deploy method for Revision ${revision[1]}`}
+          onClose={() => {
+            setToggleDeploy(false);
+          }}
+          onSubmit={() => {
+            (async () => {
+              const status = await deployRevision(projectId, region, groupName, strategy, instanceTemplate, targetSize);
+              console.log(status);
+              setToggleDeploy(false);
+            })();
+          }}
+        >
+          <ThemeDiv>
+            <h4 style={{marginTop: "15px"}}>Choose Deploy Method</h4>
+            <div  className='info-item--row'>
+              <div className='text'>Strategy: </div>
+              <div className='info-item--row__container'>
+                <select
+                  onChange={(e) => {setStrategy(e.target.value)}}
+                  value={strategy}
+                >
+                  <option value={'rolling'} key={'rolling'}>
+                    Rolling Update
+                  </option>
+                  <option value={'canary'} key={'canary'}>
+                    Canary
+                  </option>                  
+                </select>
+              </div>
+            </div>
+            { strategy === 'canary' &&
+              <div  className='info-item--row'>
+                <div className='text'>Target Size (Fixed): </div>
+                <div className='info-item--row__container'>
+                  <Input
+                    value={targetSize}
+                    style={{width: "45px"}}
+                    onChange={(e) => {
+                      setTargetSize(e.target.value);
+                    }} />
+                </div>
+              </div>
+            }
+          </ThemeDiv>
+          <ThemeDiv>
+            <h4 style={{marginTop: "15px"}}>Deploy Detail</h4>
+            <InfoItemRow
+              items={{
+                kind: strategy === 'canary' ? InfoItemKind.Canary : InfoItemKind.Default,
+                content: strategy === 'canary' ? 'Canary' : 'Rollout',
+                icon: 'fa-dove'
+              }}
+              label='Strategy'
+            />
+            <InfoItemRow
+              items={{
+                kind: strategy === 'canary' ? InfoItemKind.Canary : InfoItemKind.Default,
+                content: instanceTemplate,                  
+              }}
+              label='Target Revision'
+            />
+            { strategy === 'canary' &&
+              <InfoItemRow
+                items={{
+                  kind: strategy === 'canary' ? InfoItemKind.Canary : InfoItemKind.Default,
+                  content: targetSize,                  
+                }}
+                label='Target Size'
+              />            
+            }
+          </ThemeDiv>
+        </Popup>
+      }
     </EffectDiv>
   );
 };
@@ -399,26 +452,27 @@ const RolloutHistory = (
             const [image, version] = parameters;
 
             return (
-              <EffectDiv
+              <ThemeDiv
                 key={`history-${index}`}
                 className='revision'
               >
                 <ThemeDiv className='revision__header'>
                   {deployedAt.split('T')[0]}
+                 
                 </ThemeDiv>
                 <InfoItemRow
                   items={{
-                    content: version.value,
+                    content: version.value
                   }}
-                  label={version.name}
+                  label="Version"
                 />
                 <InfoItemRow
                   items={{
-                    content: image.value,
+                    content: image.value
                   }}
-                  label={image.name}
-                />                    
-              </EffectDiv>
+                  label="Image"
+                />
+              </ThemeDiv>
             );
           })
         }
@@ -478,6 +532,32 @@ export const Extension = (props: {
 
   return (
     <>
+      <div style={{        
+        display: 'flex',        
+        justifyContent: 'center',
+        width: '100%',
+        marginBottom: '10px',
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'right',
+          width: '865px'
+        }}>
+          <ActionButton
+            action={() => {
+              (async () => {
+                const instanceGroup = await getInstanceGroup(projectId, location, name);
+                console.log("refreshed: ", instanceGroup);
+                setInstanceGroup(instanceGroup);
+              })();                     
+            }}
+            label='Refresh'
+            icon='fa-undo-alt'
+            style={{fontSize: '12px'}}              
+            disabled={false}
+          />
+        </div>
+      </div>
       <RolloutTop
         application={props.application}
         resource={props.resource}
@@ -487,7 +567,7 @@ export const Extension = (props: {
         projectId={projectId}
         application={props.application}
         instanceGroup={instanceGroup}
-      />      
+      />
     </>
   );
 };

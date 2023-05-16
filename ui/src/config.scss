@@ -1,0 +1,76 @@
+$body-font-family: 'Heebo', sans-serif !default;
+$global-width: 100%;
+$breakpoint-classes: (small medium large xlarge xxlarge xxxlarge);
+$breakpoints: (
+  small: 0,
+  medium: 640px,
+  large: 1024px,
+  xlarge: 1200px,
+  xxlarge: 1440px,
+  xxxlarge: 1820px,
+);
+
+$argo-color-gray-1: #F8FBFB;
+$argo-color-gray-2: #EFF3F5;
+$argo-color-gray-3: #DEE6EB;
+$argo-color-gray-4: #CCD6DD;
+$argo-color-gray-5: #8FA4B1;
+$argo-color-gray-6: #6D7F8B;
+$argo-color-gray-7: #495763;
+$argo-color-gray-8: #363C4A;
+$argo-color-gray-9: #000000;
+
+$argo-color-teal-1: #F5FBFD;
+$argo-color-teal-2: #DFF6F9;
+$argo-color-teal-3: #BDECF2;
+$argo-color-teal-4: #99E1EA;
+$argo-color-teal-5: #1FBDD0;
+$argo-color-teal-6: #00A2B3;
+$argo-color-teal-7: #006F8A;
+$argo-color-teal-8: #004C67;
+
+$white-color: #ffffff;
+$dark-theme-background-1: #100f0f;
+$dark-theme-background-2: #303237;
+$dark-theme-sliding-panel: #28292a;
+// Status colors
+$argo-failed-color: #E96D76;
+$argo-failed-color-dark: #c04b4f;
+$argo-failed-color-light: #ff6262;
+$argo-status-failed-color: #ef0b28;
+$argo-color-red: #F00052;
+
+$argo-success-color: #18BE94;
+$argo-success-color-dark: #3F946D;
+$argo-success-color-light: #95D58F;
+$argo-status-success-color: #0d8d38;
+$argo-color-green: #7ED321;
+
+$argo-status-warning-color: #f4c030;
+$argo-color-yellow: #FFD100;
+
+$argo-running-color-dark: #378398;
+$argo-running-color-light: #02C4D3;
+$argo-running-color: #0DADEA;
+$argo-suspended-color: #766F94;
+
+$argo-waiting-color-dark: $argo-color-gray-6;
+$argo-waiting-color-light: $argo-color-gray-5;
+$argo-waiting-color: $argo-color-gray-5;
+$argo-cancelled-color: $argo-color-gray-5;
+$argo-init-color: $argo-color-gray-5;
+
+
+$argo-breakpoint-md: 1400px;
+$border-radius: 5px;
+$top-bar-height: 50px;
+$nav-width: 60px;
+$basePageWidth: 1024px;
+
+$nav-z-index: 11;
+$top-bar-z-index: 9;
+$sliding-panel-z-index: 20;
+$notifications-z-index: 21;
+
+$argo-icon-fonts-root: 'assets/fonts/';
+$fa-font-path: 'assets/fonts';
