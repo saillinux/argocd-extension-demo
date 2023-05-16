@@ -233,6 +233,30 @@ Now apply the change then the controller will install them in the right director
 kubectl apply -f argocd_extension.yaml -n argocd
 ```
 
+# Config Connect Application Demo
+
+https://github.com/saillinux/argocd-demo
+
+```
+# login to argocd locally
+argocd login <argocd server url>
+
+# use the right GKE cluster context
+kubectl config use-context gke_heewonk-bunker_us-central1-c_front01-us-central1-c
+
+# create an application that uses the config connector demo manifests to deploy application using Config Connector
+argocd app create argocd-cc-demo --repo https://github.com/saillinux/argocd-demo.git --path helm --dest-server https://kubernetes.default.svc --dest-namespace default
+
+# Update parameters to create a new instance template (new revision)
+argocd app set argocd-cc-demo -p version=2 -p instance.image=debian-cloud/debian-10
+
+# This will create a new instance template using the config connector
+argocd app sync argocd-cc-demo
+
+# rolling update the managed instance group with the new template
+gcloud compute instance-groups managed rolling-action start-update heewonk-bunker-argocd-cc-demo-instance-group --version=template=heewonk-bunker-argocd-cc-demo-instance-template-2 --region=us-west1
+```
+
 # Local Development
 
 ```
