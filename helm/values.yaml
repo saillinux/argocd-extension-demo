@@ -1,18 +1,25 @@
-# Default values for helm-guestbook.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
-replicaCount: 1
-
-image:
-  repository: gcr.io/heewonk-bunker/extdemo
-  tag: latest
-  pullPolicy: Always
+deployment:
+  replicaCount: 1
+  port:
+    name: http
+    containerPort: 8080
+    protocol: TCP
+  resources:
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  image:
+    repository: gcr.io/heewonk-bunker/extdemo
+    tag: latest
+    pullPolicy: Always
+  workloadIdentity:
+    enabled: true
+    name: sa-extdemo
 
 service:
+  name: http
+  targetPort: http
+  protocol: TCP
   type: ClusterIP
   port: 80
 
-workloadIdentity:
-  enabled: true
-  name: sa-extdemo

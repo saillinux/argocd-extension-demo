@@ -2,8 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Chart.Name }}
-spec:  
-  replicas: {{ .Values.replicaCount }}
+spec:
+  replicas: {{ .Values.deployment.replicaCount }}
   revisionHistoryLimit: 3
   selector:
     matchLabels:
@@ -13,18 +13,18 @@ spec:
       labels:
         app: {{ .Chart.Name }}
     spec:
-      serviceAccountName: {{ .Values.workloadIdentity.name }}
+      serviceAccountName: {{ .Values.deployment.workloadIdentity.name }}
       nodeSelector:
-        iam.gke.io/gke-metadata-server-enabled: "{{ .Values.workloadIdentity.enabled }}"
+        iam.gke.io/gke-metadata-server-enabled: "{{ .Values.deployment.workloadIdentity.enabled }}"
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.deployment.image.repository }}:{{ .Values.deployment.image.tag }}"
+          imagePullPolicy: {{ .Values.deployment.image.pullPolicy }}
           ports:
-            - name: http
-              containerPort: 8080
-              protocol: TCP
+            - name: {{ .Values.deployment.port.name }}
+              containerPort: {{ .Values.deployment.port.containerPort }}
+              protocol: {{ .Values.deployment.port.protocol }}
           resources:
             limits:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: {{ .Values.deployment.resources.limits.memory }}
+              cpu: {{ .Values.deployment.resources.limits.cpu }}
